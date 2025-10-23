@@ -1,0 +1,97 @@
+# 🤖 PR Review Bot - Interactive Mode
+# Includes conversation handling and auto-fix capabilities
+
+name: PR Review Bot (Interactive)
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    
+    # Only run on PRs or PR comments
+    if: |
+      github.event_name == 'pull_request' || 
+      (github.event_name == 'issue_comment' && github.event.issue.pull_request) ||
+      github.event_name == 'pull_request_review_comment'
+    
+    steps:
+      - name: Checkout PR Review Bot
+        uses: actions/checkout@v4
+        with:
+          repository: gderamchi/hackathonblackbox42
+          path: .pr-review-bot
+          
+      - name: Checkout PR code
+        uses: actions/checkout@v4
+        with:
+          path: repo
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.event.issue.pull_request.head.sha }}
+          
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: '.pr-review-bot/requirements.txt'
+          
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r .pr-review-bot/requirements.txt
+          
+      - name: Determine PR number
+        id: pr
+        run: |
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            echo "number=${{ github.event.pull_request.number }}" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event_name }}" == "issue_comment" ]; then
+            echo "number=${{ github.event.issue.number }}" >> $GITHUB_OUTPUT
+          else
+            echo "number=${{ github.event.pull_request.number }}" >> $GITHUB_OUTPUT
+          fi
+          
+      - name: Run PR Review Bot
+        env:
+          BLACKBOX_API_KEY: ${{ secrets.BLACKBOX_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+          REPO_NAME: ${{ github.repository }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          EVENT_NAME: ${{ github.event_name }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          COMMENT_AUTHOR: ${{ github.event.comment.user.login }}
+          INTERACTIVE_MODE: 'true'
+        working-directory: .pr-review-bot
+        run: |
+          # Copy repo files to analyze
+          cp -r ../repo/* . 2>/dev/null || true
+          
+          # Run the bot
+          python main.py
+          
+      - name: Upload analysis results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr-review-results-${{ steps.pr.outputs.number }}
+          path: |
+            .pr-review-bot/analysis-results.json
+            .pr-review-bot/review-summary.md
+            .pr-review-bot/conversation-summary.md
+          retention-days: 30

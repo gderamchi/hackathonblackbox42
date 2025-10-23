@@ -12,6 +12,7 @@ from typing import Dict, List, Any
 
 from github_client import GitHubClient
 from blackbox_client import BlackboxClient
+from interactive_ai import InteractiveAI
 from analyzers.bug_detector import BugDetector
 from analyzers.security_scanner import SecurityScanner
 from analyzers.doc_linker import DocLinker
@@ -54,9 +55,14 @@ class PRReviewBot:
 
         self.diff_parser = DiffParser()
         self.comment_formatter = CommentFormatter()
+        
+        # Initialize interactive AI
+        self.interactive_ai = InteractiveAI(self.github_client, self.blackbox_client)
 
         self.pr_number = int(os.getenv("PR_NUMBER", 0))
         self.config = self._load_config()
+        self.interactive_mode = os.getenv('INTERACTIVE_MODE', 'false').lower() == 'true'
+        self.event_name = os.getenv('EVENT_NAME', 'pull_request')
 
     def _load_config(self) -> Dict[str, Any]:
         """Load configuration from repository or use defaults."""
@@ -204,6 +210,11 @@ Format your response as JSON with this structure:
     def process_pr(self):
         """Main process to review the PR."""
         try:
+            # Check if this is a comment event (interactive mode)
+            if self.interactive_mode and self.event_name in ['issue_comment', 'pull_request_review_comment']:
+                self._handle_comment_event()
+                return
+            
             logger.info(f"Starting PR review for PR #{self.pr_number}")
 
             if not self.config.get("enabled", True):
@@ -317,10 +328,57 @@ Format your response as JSON with this structure:
             self._save_results(file_analyses, all_issues)
 
             logger.info(f"PR review completed. Found {len(all_issues)} issues.")
-
+            
+            # Generate conversation summary if interactive mode
+            if self.interactive_mode:
+                self._save_conversation_summary()
+            
         except Exception as e:
             logger.error(f"Error processing PR: {e}", exc_info=True)
             sys.exit(1)
+    
+    def _handle_comment_event(self):
+        """Handle comment events for interactive conversation."""
+        try:
+            comment_id = os.getenv('COMMENT_ID')
+            comment_body = os.getenv('COMMENT_BODY', '')
+            comment_author = os.getenv('COMMENT_AUTHOR', '')
+            
+            logger.info(f"Processing comment from {comment_author}: {comment_body[:50]}...")
+            
+            # Process the comment
+            response = self.interactive_ai.process_comment(
+                pr_number=self.pr_number,
+                comment_id=int(comment_id) if comment_id else 0,
+                comment_body=comment_body,
+                comment_author=comment_author
+            )
+            
+            if response:
+                # Post response
+                self.github_client.create_issue_comment(
+                    pr_number=self.pr_number,
+                    body=response
+                )
+                logger.info("Posted interactive response")
+            else:
+                logger.info("Comment did not require bot response")
+            
+        except Exception as e:
+            logger.error(f"Error handling comment event: {e}", exc_info=True)
+    
+    def _save_conversation_summary(self):
+        """Save conversation summary to file."""
+        try:
+            summary = self.interactive_ai.generate_conversation_summary(self.pr_number)
+            
+            with open('conversation-summary.md', 'w') as f:
+                f.write(summary)
+            
+            logger.info("Saved conversation summary")
+            
+        except Exception as e:
+            logger.error(f"Error saving conversation summary: {e}")
 
     def _post_review_comments(self, file_analyses: List[Dict[str, Any]]):
         """Post inline review comments on the PR."""
