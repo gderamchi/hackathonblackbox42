@@ -333,7 +333,65 @@ class DependencyScanner:
         
         return None
     
-    def generate_dependency_report(self, vulnerabilities: List[Dict[str, Any]]) -> str:
+    def _calculate_performance_score(self, vulnerabilities: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        Calculate performance score based on vulnerabilities.
+        
+        Args:
+            vulnerabilities: List of vulnerabilities
+            
+        Returns:
+            Score dictionary with score and impact level
+        """
+        if not vulnerabilities:
+            return {
+                'score': 100,
+                'impact': 'NONE',
+                'message': 'No vulnerabilities detected'
+            }
+        
+        # Count by severity
+        severity_counts = {
+            'critical': 0,
+            'high': 0,
+            'medium': 0,
+            'low': 0
+        }
+        
+        for vuln in vulnerabilities:
+            severity = vuln.get('severity', 'low')
+            if severity in severity_counts:
+                severity_counts[severity] += 1
+        
+        # Calculate score (100 - penalties)
+        score = 100
+        score -= severity_counts['critical'] * 40
+        score -= severity_counts['high'] * 20
+        score -= severity_counts['medium'] * 10
+        score -= severity_counts['low'] * 5
+        
+        score = max(0, score)
+        
+        # Determine impact level
+        if score >= 80:
+            impact = 'LOW'
+        elif score >= 60:
+            impact = 'MEDIUM'
+        elif score >= 40:
+            impact = 'HIGH'
+        else:
+            impact = 'CRITICAL'
+        
+        return {
+            'score': score,
+            'impact': impact,
+            'critical': severity_counts['critical'],
+            'high': severity_counts['high'],
+            'medium': severity_counts['medium'],
+            'low': severity_counts['low']
+        }
+    
+    def generate_dependency_report(self, vulnerabilities: List[Dict[str, Any]], score: Dict[str, Any] = None) -> str:
         """
         Generate a dependency vulnerability report.
         
@@ -346,7 +404,13 @@ class DependencyScanner:
         if not vulnerabilities:
             return "✅ No vulnerable dependencies detected."
         
+        # Calculate score if not provided
+        if score is None:
+            score = self._calculate_performance_score(vulnerabilities)
+        
         report = "## 📦 Dependency Vulnerability Scan\n\n"
+        report += f"**Performance Score:** {score['score']}/100\n"
+        report += f"**Overall Impact:** {score['impact']}\n\n"
         
         # Group by severity
         by_severity = {}
@@ -356,8 +420,7 @@ class DependencyScanner:
                 by_severity[severity] = []
             by_severity[severity].append(vuln)
         
-        severity
-_order = ['critical', 'high', 'medium', 'low']
+        severity_order = ['critical', 'high', 'medium', 'low']
         for severity in severity_order:
             if severity in by_severity:
                 count = len(by_severity[severity])
