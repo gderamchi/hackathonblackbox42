@@ -122,7 +122,7 @@ def function2():
         all_passed = False
     
     # Test 6: Complexity Analyzer (basic tests)
-    print("\n📋 Test Suite 6/6: Complexity Analyzer")
+    print("\n📋 Test Suite 6/7: Complexity Analyzer")
     print("-" * 60)
     try:
         from analyzers.complexity_analyzer import ComplexityAnalyzer
@@ -148,6 +148,21 @@ def complex_function(x, y, z):
     except Exception as e:
         print(f"❌ Complexity Analyzer: {e}")
         results.append(("❌ Complexity Analyzer", f"ERROR: {e}"))
+        all_passed = False
+    
+    # Test 7: Interactive AI (comprehensive tests)
+    print("\n📋 Test Suite 7/7: Interactive AI")
+    print("-" * 60)
+    try:
+        from test_interactive_ai import run_all_tests as test_interactive_ai
+        if test_interactive_ai():
+            results.append(("✅ Interactive AI", "PASSED"))
+        else:
+            results.append(("❌ Interactive AI", "FAILED"))
+            all_passed = False
+    except Exception as e:
+        print(f"❌ Interactive AI: {e}")
+        results.append(("❌ Interactive AI", f"ERROR: {e}"))
         all_passed = False
     
     # Print summary

@@ -365,7 +365,7 @@ The bot will not flag this issue in future reviews of this PR.
     
     def _handle_help_command(self) -> str:
         """Handle /help command - show available commands."""
-        return """## 🤖 PR Review Bot - Interactive Commands
+        return r"""## 🤖 PR Review Bot - Interactive Commands
 
 ### Available Commands:
 
@@ -461,16 +461,25 @@ Provide a helpful, conversational response. Be friendly and technical. If they'r
         Returns:
             Formatted summary
         """
-        conversations = self.conversation_history.get(pr_number, [])
+        # Get all conversations for this PR
+        all_convs = []
+        for key, convs in self.conversation_history.items():
+            if key.startswith(f"{pr_number}:"):
+                # Extract file path from key (format: "pr:file:line")
+                parts = key.split(':', 2)
+                file_path = parts[1] if len(parts) > 1 else 'General'
+                for conv in convs:
+                    conv['file_path'] = file_path
+                    all_convs.append(conv)
         
-        if not conversations:
-            return "No conversations yet."
+        if not all_convs:
+            return "## 💬 Conversation Summary\n\nNo conversations yet."
         
         summary = "## 💬 Conversation Summary\n\n"
         
         # Group by file
         by_file = {}
-        for conv in conversations:
+        for conv in all_convs:
             file = conv.get('file_path', 'General')
             if file not in by_file:
                 by_file[file] = []
@@ -479,8 +488,12 @@ Provide a helpful, conversational response. Be friendly and technical. If they'r
         for file, convs in by_file.items():
             summary += f"### 📄 {file}\n\n"
             for conv in convs:
-                summary += f"**Developer:** {conv['message'][:100]}...\n"
-                summary += f"**Bot:** {conv['response'][:100]}...\n\n"
+                msg = conv.get('message', '')[:100]
+                resp = conv.get('response', '')[:100]
+                summary += f"**Developer:** {msg}{'...' if len(conv.get('message', '')) > 100 else ''}\n"
+                summary += f"**Bot:** {resp}{'...' if len(conv.get('response', '')) > 100 else ''}\n\n"
+        
+        summary += f"\n**Total Conversations:** {len(all_convs)}\n"
         
         return summary
     
