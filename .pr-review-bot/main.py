@@ -18,6 +18,9 @@ from analyzers.doc_linker import DocLinker
 from analyzers.summarizer import Summarizer
 from analyzers.dependency_scanner import DependencyScanner
 from analyzers.performance_analyzer import PerformanceAnalyzer
+from analyzers.code_duplication_detector import CodeDuplicationDetector
+from analyzers.test_coverage_analyzer import TestCoverageAnalyzer
+from analyzers.complexity_analyzer import ComplexityAnalyzer
 from utils.diff_parser import DiffParser
 from utils.comment_formatter import CommentFormatter
 
@@ -45,6 +48,9 @@ class PRReviewBot:
         self.summarizer = Summarizer()
         self.dependency_scanner = DependencyScanner()
         self.performance_analyzer = PerformanceAnalyzer()
+        self.duplication_detector = CodeDuplicationDetector()
+        self.test_coverage_analyzer = TestCoverageAnalyzer()
+        self.complexity_analyzer = ComplexityAnalyzer()
 
         self.diff_parser = DiffParser()
         self.comment_formatter = CommentFormatter()
@@ -74,6 +80,9 @@ class PRReviewBot:
                 "summarization": True,
                 "dependency_scan": True,
                 "performance_analysis": True,
+                "duplication_detection": True,
+                "test_coverage": True,
+                "complexity_analysis": True,
             },
             "max_comments": 50,
         }
@@ -179,6 +188,16 @@ Format your response as JSON with this structure:
         if self.config["features"].get("performance_analysis", True):
             perf_issues = self.performance_analyzer.analyze(code, filename)
             issues.extend(perf_issues)
+        
+        # NEW: Code duplication detection
+        if self.config["features"].get("duplication_detection", True):
+            dup_issues = self.duplication_detector.analyze_file(filename, code)
+            issues.extend(dup_issues)
+        
+        # NEW: Complexity analysis
+        if self.config["features"].get("complexity_analysis", True):
+            complexity_issues = self.complexity_analyzer.analyze(code, filename)
+            issues.extend(complexity_issues)
 
         return issues
 
