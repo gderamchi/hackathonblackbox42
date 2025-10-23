@@ -1,0 +1,60 @@
+{
+  "version": "1.0.0",
+  "description": "Custom rules for PR review bot",
+  "bug_patterns": [
+    {
+      "id": "custom-001",
+      "pattern": "TODO.*urgent",
+      "message": "Urgent TODO found - should be addressed before merging",
+      "severity": "high",
+      "language": "all"
+    },
+    {
+      "id": "custom-002",
+      "pattern": "HACK|FIXME",
+      "message": "Code marked as hack or needs fixing",
+      "severity": "medium",
+      "language": "all"
+    }
+  ],
+  "security_patterns": [
+    {
+      "id": "sec-001",
+      "pattern": "(?i)(api[_-]?key|secret|password|token)\\s*=\\s*['\"][^'\"]{8,}['\"]",
+      "message": "Potential hardcoded credential detected",
+      "severity": "critical",
+      "language": "all",
+      "cwe": "CWE-798"
+    }
+  ],
+  "quality_patterns": [
+    {
+      "id": "quality-001",
+      "pattern": "function\\s+\\w+\\s*\\([^)]{100,}\\)",
+      "message": "Function has too many parameters - consider refactoring",
+      "severity": "low",
+      "language": "javascript"
+    }
+  ],
+  "ignore_patterns": [
+    "*.min.js",
+    "*.min.css",
+    "package-lock.json",
+    "yarn.lock",
+    "*.generated.*",
+    "node_modules/**",
+    "vendor/**",
+    "dist/**",
+    "build/**"
+  ],
+  "file_size_limits": {
+    "warning_threshold": 500,
+    "error_threshold": 1000,
+    "description": "File size limits in lines of code"
+  },
+  "complexity_thresholds": {
+    "cyclomatic_complexity": 10,
+    "nesting_depth": 4,
+    "function_length": 50
+  }
+}
