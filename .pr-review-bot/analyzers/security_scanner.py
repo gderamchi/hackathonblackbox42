@@ -56,6 +56,8 @@ class SecurityScanner:
                 "suggestion": "Use textContent or sanitize input with DOMPurify",
                 "type": "security",
                 "cwe": "CWE-79",
+                "auto_fix": lambda line: line.replace("innerHTML", "textContent"),
+                "fix_description": "Replace innerHTML with textContent"
             },
             {
                 "pattern": r"dangerouslySetInnerHTML",
@@ -84,6 +86,8 @@ class SecurityScanner:
                 "suggestion": "Use environment variables or secure secret management",
                 "type": "security",
                 "cwe": "CWE-798",
+                "auto_fix": lambda line: re.sub(r'=\s*["\'][^"\']+["\']', '= os.getenv("PASSWORD")', line),
+                "fix_description": "Replace hardcoded password with environment variable"
             },
             {
                 "pattern": r'(?:api[_-]?key|apikey|api[_-]?secret)\s*=\s*["\'][^"\']{10,}["\']',
@@ -93,6 +97,8 @@ class SecurityScanner:
                 "suggestion": "Use environment variables for API keys",
                 "type": "security",
                 "cwe": "CWE-798",
+                "auto_fix": lambda line: re.sub(r'=\s*["\'][^"\']+["\']', '= os.getenv("API_KEY")', line),
+                "fix_description": "Replace hardcoded API key with environment variable"
             },
             {
                 "pattern": r'(?:secret[_-]?key|private[_-]?key)\s*=\s*["\'][^"\']{10,}["\']',
@@ -177,6 +183,8 @@ class SecurityScanner:
                 "suggestion": "Use SHA-256 or stronger hash functions",
                 "type": "security",
                 "cwe": "CWE-327",
+                "auto_fix": lambda line: line.replace("md5(", "sha256("),
+                "fix_description": "Replace MD5 with SHA-256"
             },
             {
                 "pattern": r"sha1\s*\(",
@@ -186,6 +194,8 @@ class SecurityScanner:
                 "suggestion": "Use SHA-256 or SHA-3",
                 "type": "security",
                 "cwe": "CWE-327",
+                "auto_fix": lambda line: line.replace("sha1(", "sha256("),
+                "fix_description": "Replace SHA-1 with SHA-256"
             },
             {
                 "pattern": r"Random\s*\(\)",
@@ -214,6 +224,8 @@ class SecurityScanner:
                 "suggestion": "Use yaml.safe_load() instead",
                 "type": "security",
                 "cwe": "CWE-502",
+                "auto_fix": lambda line: line.replace("yaml.load(", "yaml.safe_load("),
+                "fix_description": "Replace yaml.load() with yaml.safe_load()"
             },
             # SSRF (Server-Side Request Forgery)
             {
@@ -262,6 +274,8 @@ class SecurityScanner:
                 "suggestion": "Enable SSL verification for production",
                 "type": "security",
                 "cwe": "CWE-295",
+                "auto_fix": lambda line: line.replace("verify=False", "verify=True"),
+                "fix_description": "Enable SSL certificate verification"
             },
             # Information Disclosure
             {
@@ -327,19 +341,31 @@ class SecurityScanner:
                         if self._is_in_comment(line, match.start(), language):
                             continue
 
-                        vulnerabilities.append(
-                            {
-                                "type": pattern_rule["type"],
-                                "severity": pattern_rule["severity"],
-                                "line": line_num,
-                                "column": match.start(),
-                                "message": pattern_rule["message"],
-                                "suggestion": pattern_rule["suggestion"],
-                                "code_snippet": line.strip(),
-                                "matched_text": match.group(),
-                                "cwe": pattern_rule.get("cwe", "N/A"),
-                            }
-                        )
+                        vuln = {
+                            "type": pattern_rule["type"],
+                            "severity": pattern_rule["severity"],
+                            "line": line_num,
+                            "column": match.start(),
+                            "message": pattern_rule["message"],
+                            "suggestion": pattern_rule["suggestion"],
+                            "code_snippet": line.strip(),
+                            "matched_text": match.group(),
+                            "cwe": pattern_rule.get("cwe", "N/A"),
+                        }
+                        
+                        # Add auto-fix if available
+                        if "auto_fix" in pattern_rule:
+                            try:
+                                fixed_line = pattern_rule["auto_fix"](line)
+                                vuln["auto_fix"] = {
+                                    "original": line.strip(),
+                                    "fixed": fixed_line.strip(),
+                                    "description": pattern_rule.get("fix_description", "Apply security fix")
+                                }
+                            except Exception as e:
+                                logger.warning(f"Failed to generate auto-fix: {e}")
+                        
+                        vulnerabilities.append(vuln)
 
             except re.error as e:
                 logger.error(f"Regex error in pattern {pattern}: {e}")

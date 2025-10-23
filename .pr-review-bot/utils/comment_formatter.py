@@ -60,6 +60,11 @@ class CommentFormatter:
         # Add suggestion
         if suggestion:
             comment += f"**💡 Suggestion:**\n{suggestion}\n\n"
+        
+        # Add auto-fix if available
+        auto_fix = issue.get("auto_fix")
+        if auto_fix:
+            comment += self._format_auto_fix(auto_fix)
 
         # Add CWE reference for security issues
         if cwe and issue_type == "security":
@@ -189,6 +194,28 @@ class CommentFormatter:
 
         return comment
 
+    def _format_auto_fix(self, auto_fix: Dict[str, str]) -> str:
+        """Format auto-fix suggestion."""
+        original = auto_fix.get("original", "")
+        fixed = auto_fix.get("fixed", "")
+        description = auto_fix.get("description", "Apply suggested fix")
+        
+        formatted = "**🔧 Auto-Fix Available:**\n"
+        formatted += f"*{description}*\n\n"
+        
+        # Show before/after
+        formatted += "**Before:**\n```\n"
+        formatted += original
+        formatted += "\n```\n\n"
+        
+        formatted += "**After:**\n```\n"
+        formatted += fixed
+        formatted += "\n```\n\n"
+        
+        formatted += "✨ *This fix can be applied automatically*\n\n"
+        
+        return formatted
+    
     def _format_doc_links(self, doc_links: List[Dict[str, str]]) -> str:
         """Format documentation links."""
         if not doc_links:

@@ -27,6 +27,8 @@ class BugDetector:
                 "severity": "medium",
                 "suggestion": "Use specific exception types: except ValueError:",
                 "type": "bug",
+                "auto_fix": lambda line: line.replace("except:", "except Exception:"),
+                "fix_description": "Replace bare except with except Exception:"
             },
             {
                 "pattern": r"==\s*None|None\s*==",
@@ -35,6 +37,8 @@ class BugDetector:
                 "severity": "low",
                 "suggestion": "Replace with: if variable is None:",
                 "type": "quality",
+                "auto_fix": lambda line: re.sub(r"==\s*None", "is None", re.sub(r"None\s*==", "None is", line)),
+                "fix_description": "Replace == None with is None"
             },
             {
                 "pattern": r"\.append\([^)]*\)\s*\.append\(",
@@ -60,6 +64,8 @@ class BugDetector:
                 "severity": "medium",
                 "suggestion": "Replace == with ===",
                 "type": "bug",
+                "auto_fix": lambda line: line.replace("==", "==="),
+                "fix_description": "Replace == with ==="
             },
             {
                 "pattern": r"!=(?!=)",
@@ -68,6 +74,8 @@ class BugDetector:
                 "severity": "medium",
                 "suggestion": "Replace != with !==",
                 "type": "bug",
+                "auto_fix": lambda line: line.replace("!=", "!=="),
+                "fix_description": "Replace != with !=="
             },
             {
                 "pattern": r"var\s+\w+",
@@ -76,6 +84,8 @@ class BugDetector:
                 "severity": "low",
                 "suggestion": "Replace var with let or const",
                 "type": "quality",
+                "auto_fix": lambda line: line.replace("var ", "const "),
+                "fix_description": "Replace var with const"
             },
             {
                 "pattern": r"console\.log\(",
@@ -84,6 +94,8 @@ class BugDetector:
                 "severity": "info",
                 "suggestion": "Remove or replace with proper logging",
                 "type": "quality",
+                "auto_fix": lambda line: "// " + line if not line.strip().startswith("//") else line,
+                "fix_description": "Comment out console.log"
             },
             # Common patterns across languages
             {
@@ -101,6 +113,8 @@ class BugDetector:
                 "severity": "high",
                 "suggestion": "Remove debugger statement before committing",
                 "type": "bug",
+                "auto_fix": lambda line: line.replace("debugger;", "// debugger; // REMOVED"),
+                "fix_description": "Remove debugger statement"
             },
             {
                 "pattern": r"import\s+pdb|pdb\.set_trace\(\)",
@@ -109,6 +123,8 @@ class BugDetector:
                 "severity": "high",
                 "suggestion": "Remove pdb debugging code before committing",
                 "type": "bug",
+                "auto_fix": lambda line: "# " + line if "pdb.set_trace()" in line else line.replace("import pdb", "# import pdb"),
+                "fix_description": "Comment out pdb debugging code"
             },
             # Null/undefined checks
             {
@@ -135,6 +151,8 @@ class BugDetector:
                 "severity": "medium",
                 "suggestion": 'Use "with open(...) as f:" context manager',
                 "type": "bug",
+                "auto_fix": lambda line: self._convert_to_context_manager(line),
+                "fix_description": "Convert to context manager (with statement)"
             },
             # Infinite loops
             {
@@ -215,18 +233,30 @@ class BugDetector:
                         if self._is_in_comment(line, match.start(), language):
                             continue
 
-                        issues.append(
-                            {
-                                "type": pattern_rule["type"],
-                                "severity": pattern_rule["severity"],
-                                "line": line_num,
-                                "column": match.start(),
-                                "message": pattern_rule["message"],
-                                "suggestion": pattern_rule["suggestion"],
-                                "code_snippet": line.strip(),
-                                "matched_text": match.group(),
-                            }
-                        )
+                        issue = {
+                            "type": pattern_rule["type"],
+                            "severity": pattern_rule["severity"],
+                            "line": line_num,
+                            "column": match.start(),
+                            "message": pattern_rule["message"],
+                            "suggestion": pattern_rule["suggestion"],
+                            "code_snippet": line.strip(),
+                            "matched_text": match.group(),
+                        }
+                        
+                        # Add auto-fix if available
+                        if "auto_fix" in pattern_rule:
+                            try:
+                                fixed_line = pattern_rule["auto_fix"](line)
+                                issue["auto_fix"] = {
+                                    "original": line.strip(),
+                                    "fixed": fixed_line.strip(),
+                                    "description": pattern_rule.get("fix_description", "Apply suggested fix")
+                                }
+                            except Exception as e:
+                                logger.warning(f"Failed to generate auto-fix: {e}")
+                        
+                        issues.append(issue)
 
             except re.error as e:
                 logger.error(f"Regex error in pattern {pattern}: {e}")
@@ -320,3 +350,14 @@ class BugDetector:
             "max_nesting_depth": max_nesting,
             "complexity_score": code_lines + (max_nesting * 10),
         }
+    
+    def _convert_to_context_manager(self, line: str) -> str:
+        """Convert open() call to context manager."""
+        # Extract the open() call
+        match = re.search(r'(\w+)\s*=\s*open\(([^)]+)\)', line)
+        if match:
+            var_name = match.group(1)
+            args = match.group(2)
+            indent = len(line) - len(line.lstrip())
+            return f"{' ' * indent}with open({args}) as {var_name}:"
+        return line

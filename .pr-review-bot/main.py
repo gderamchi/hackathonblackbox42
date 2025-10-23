@@ -16,6 +16,8 @@ from analyzers.bug_detector import BugDetector
 from analyzers.security_scanner import SecurityScanner
 from analyzers.doc_linker import DocLinker
 from analyzers.summarizer import Summarizer
+from analyzers.dependency_scanner import DependencyScanner
+from analyzers.performance_analyzer import PerformanceAnalyzer
 from utils.diff_parser import DiffParser
 from utils.comment_formatter import CommentFormatter
 
@@ -41,6 +43,8 @@ class PRReviewBot:
         self.security_scanner = SecurityScanner()
         self.doc_linker = DocLinker()
         self.summarizer = Summarizer()
+        self.dependency_scanner = DependencyScanner()
+        self.performance_analyzer = PerformanceAnalyzer()
 
         self.diff_parser = DiffParser()
         self.comment_formatter = CommentFormatter()
@@ -68,6 +72,8 @@ class PRReviewBot:
                 "security_scan": True,
                 "doc_linking": True,
                 "summarization": True,
+                "dependency_scan": True,
+                "performance_analysis": True,
             },
             "max_comments": 50,
         }
@@ -160,6 +166,19 @@ Format your response as JSON with this structure:
 
         if self.config["features"].get("security_scan", True):
             issues.extend(self.security_scanner.analyze(code, filename))
+        
+        # NEW: Dependency vulnerability scanning
+        if self.config["features"].get("dependency_scan", True):
+            dep_files = ['requirements.txt', 'package.json', 'Pipfile', 'pom.xml', 'go.mod']
+            if any(filename.endswith(dep_file) for dep_file in dep_files):
+                logger.info(f"Scanning dependencies in {filename}")
+                dep_issues = self.dependency_scanner.scan_file(filename, code)
+                issues.extend(dep_issues)
+        
+        # NEW: Performance analysis
+        if self.config["features"].get("performance_analysis", True):
+            perf_issues = self.performance_analyzer.analyze(code, filename)
+            issues.extend(perf_issues)
 
         return issues
 
