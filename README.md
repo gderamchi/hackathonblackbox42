@@ -13,25 +13,43 @@ An intelligent Pull Request review bot powered by Blackbox AI that automatically
 - **⚡ Multi-Language Support** - Works with Python, JavaScript, TypeScript, Java, Go, and more
 - **🚀 Scalable** - Handles multiple repositories with configurable rules
 
-## 🚀 Quick Start
+## 🚀 Quick Setup (3 Steps)
 
-### 1. Setup in Your Repository
+### Step 1: Create Workflow File
+In your new repository, create `.github/workflows/pr-review.yml`:
 
-1. **Copy the workflow file** to your repository:
-   ```bash
-   mkdir -p .github/workflows
-   cp .github/workflows/pr-review.yml .github/workflows/
-   ```
+```yaml
+name: PR Review
 
-2. **Add Blackbox API Key** as a repository secret:
-   - Go to your repository → Settings → Secrets and variables → Actions
-   - Click "New repository secret"
-   - Name: `BLACKBOX_API_KEY`
-   - Value: Your Blackbox API key
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
 
-3. **Add GitHub Token** (automatically available as `GITHUB_TOKEN`)
+jobs:
+  review:
+    uses: gderamchi/hackathonblackbox42/.github/workflows/pr-review.yml@main
+    secrets:
+      BLACKBOX_API_KEY: ${{ secrets.BLACKBOX_API_KEY }}
+```
 
-### 2. Configuration (Optional)
+### Step 2: Add GitHub Secret
+1. Go to your repo: `Settings → Secrets → Actions`
+2. Click "New repository secret"
+3. Name: `BLACKBOX_API_KEY`
+4. Value: Your Blackbox API key
+5. Click "Add secret"
+
+### Step 3: Enable GitHub Actions
+1. Go to: `Settings → Actions → General`
+2. Select: "Allow all actions and reusable workflows"
+3. Select: "Read and write permissions"
+4. Click "Save"
+
+**Done!** Create a PR and the bot will automatically review it.
+
+---
+
+## ⚙️ Optional Configuration
 
 Create a `.pr-review-bot.json` file in your repository root to customize behavior:
 
@@ -55,90 +73,15 @@ Create a `.pr-review-bot.json` file in your repository root to customize behavio
 }
 ```
 
-### 3. Usage
+## 🔍 What Gets Detected
 
-Once set up, the bot automatically:
-- ✅ Triggers on PR open/update events
-- ✅ Analyzes all changed files
-- ✅ Posts review comments
-- ✅ Generates PR summary
-
-## 📋 How It Works
-
-1. **PR Event Trigger** - GitHub Actions detects PR creation/update
-2. **Fetch Changes** - Retrieves diff and changed files
-3. **Blackbox Analysis** - Sends code to Blackbox API for AI-powered review
-4. **Multi-Layer Analysis**:
-   - Bug pattern detection
-   - Security vulnerability scanning
-   - Code quality assessment
-   - Documentation suggestions
-5. **Post Comments** - Creates inline comments and summary
-6. **Update Status** - Reports analysis completion
-
-## 🔧 Advanced Configuration
-
-### Custom Rules
-
-Add custom detection rules in `config/rules.json`:
-
-```json
-{
-  "bug_patterns": [
-    {
-      "pattern": "eval\\(",
-      "message": "Avoid using eval() - security risk",
-      "severity": "high"
-    }
-  ],
-  "security_patterns": [
-    {
-      "pattern": "password\\s*=\\s*['\"]",
-      "message": "Hardcoded password detected",
-      "severity": "critical"
-    }
-  ]
-}
-```
-
-### Environment Variables
-
-- `BLACKBOX_API_KEY` - Your Blackbox API key (required)
-- `GITHUB_TOKEN` - GitHub token for API access (auto-provided)
-- `MIN_SEVERITY` - Minimum severity to report (info/low/medium/high/critical)
-- `MAX_COMMENTS` - Maximum comments per PR (default: 50)
-
-## 🏗️ Architecture
-
-```
-┌─────────────────┐
-│   GitHub PR     │
-│   Event         │
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│ GitHub Actions  │
-│ Workflow        │
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│  PR Review Bot  │
-│  (Python)       │
-└────────┬────────┘
-         │
-    ┌────┴────┐
-    ▼         ▼
-┌────────┐ ┌──────────┐
-│Blackbox│ │ GitHub   │
-│  API   │ │   API    │
-└────────┘ └──────────┘
-```
+- 🔒 **Security:** SQL injection, XSS, hardcoded secrets, command injection, weak crypto
+- 🐛 **Bugs:** Null pointers, division by zero, infinite loops, resource leaks
+- 💡 **Quality:** Best practices, code smells, debug code, unused variables
 
 ## 📊 Example Output
 
-### Inline Comment Example
+**Inline Comment:**
 ```
 🐛 Bug Detected (Medium Severity)
 
@@ -147,11 +90,9 @@ Potential null pointer exception. The variable `user` may be null here.
 Suggestion: Add null check before accessing properties:
 if user is not None:
     print(user.name)
-
-📚 Related Documentation: [Python None Handling](https://docs.python.org/3/library/stdtypes.html#the-null-object)
 ```
 
-### PR Summary Example
+**PR Summary:**
 ```
 ## 🤖 Blackbox PR Review Summary
 
@@ -159,59 +100,22 @@ if user is not None:
 
 ### 📊 Statistics
 - Files Changed: 5
-- Lines Added: 120
-- Lines Removed: 45
-- Issues Found: 3
-
-### 🔍 Key Findings
-- 🐛 1 potential bug detected
-- 🔒 1 security concern
-- ℹ️ 1 code quality suggestion
-
-### 📝 Summary
-This PR adds user authentication functionality. The implementation is mostly solid, but there are a few concerns that should be addressed before merging.
+- Issues Found: 3 (1 critical, 1 high, 1 medium)
 
 ### ⚠️ Critical Issues
 1. Hardcoded API key in `auth.py:23`
 
 ### 💡 Recommendations
 - Add input validation for user credentials
-- Consider using environment variables for secrets
-- Add unit tests for authentication flow
+- Use environment variables for secrets
 ```
 
-## 🧪 Testing
+## 📁 Repository Structure
 
-Run tests locally:
-```bash
-pip install -r requirements.txt
-pytest tests/
-```
-
-## 🤝 Contributing
-
-Contributions welcome! Please:
-1. Fork the repository
-2. Create a feature branch
-3. Add tests for new features
-4. Submit a pull request
-
-## 📄 License
-
-MIT License - see LICENSE file for details
-
-## 🔗 Links
-
-- [Blackbox AI](https://www.blackbox.ai/)
-- [GitHub Actions Documentation](https://docs.github.com/en/actions)
-- [Issue Tracker](https://github.com/yourusername/pr-review-bot/issues)
-
-## 💬 Support
-
-For issues or questions:
-- Open an issue on GitHub
-- Check existing documentation
-- Review example configurations
+- `.pr-review-bot/` - Bot source code (Python)
+- `.github/workflows/pr-review.yml` - Reusable workflow
+- `requirements.txt` - Python dependencies
+- `config/rules.json` - Custom detection rules
 
 ---
 
